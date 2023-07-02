@@ -29,7 +29,7 @@ pub struct Callback<E: Editor> {
 }
 
 pub struct LangSettings {
-    pub indentation: u64,
+    pub indentation: u32,
     pub indentation_with_space: bool,
 }
 
@@ -97,7 +97,7 @@ impl<E: Editor> LangServerHandler<E> {
                 _ => {}
             }
         }
-        lsp::TextDocumentSyncKind::Full
+        lsp::TextDocumentSyncKind::FULL
     }
 
     fn send_msg(&self, msg: LspMessage) -> Result<(), LangServerError> {

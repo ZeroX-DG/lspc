@@ -13,32 +13,34 @@ pub struct TrackingFile {
     pub handler_id: u64,
     pub sent_did_open: bool,
     pub scheduled_sync_at: Option<Instant>,
-    version: i64,
+    version: i32,
     uri: Url,
     sync_data: SyncData,
 }
 
 impl TrackingFile {
     pub fn new(handler_id: u64, uri: Url, sync_kind: lsp::TextDocumentSyncKind) -> Self {
+        let version = 0;
         let sync_data = match sync_kind {
-            lsp::TextDocumentSyncKind::None => SyncData::None,
-            lsp::TextDocumentSyncKind::Incremental => {
+            lsp::TextDocumentSyncKind::NONE => SyncData::None,
+            lsp::TextDocumentSyncKind::INCREMENTAL => {
                 SyncData::Incremental(lsp::DidChangeTextDocumentParams {
                     text_document: lsp::VersionedTextDocumentIdentifier {
                         uri: uri.clone(),
-                        version: None,
+                        version,
                     },
                     content_changes: Vec::new(),
                 })
             }
-            lsp::TextDocumentSyncKind::Full => SyncData::Full(Rope::new()),
+            lsp::TextDocumentSyncKind::FULL => SyncData::Full(Rope::new()),
+            _ => unreachable!()
         };
 
         TrackingFile {
             handler_id,
             sent_did_open: false,
             scheduled_sync_at: None,
-            version: 0,
+            version,
             uri,
             sync_data,
         }
@@ -46,7 +48,7 @@ impl TrackingFile {
 
     pub fn track_change(
         &mut self,
-        version: i64,
+        version: i32,
         content_change: &lsp::TextDocumentContentChangeEvent,
     ) {
         self.version = version;
@@ -91,7 +93,7 @@ impl TrackingFile {
         let mut sync_content = lsp::DidChangeTextDocumentParams {
             text_document: lsp::VersionedTextDocumentIdentifier {
                 uri: self.uri.clone(),
-                version: Some(self.version),
+                version: self.version,
             },
             content_changes: Vec::new(),
         };
@@ -140,7 +142,7 @@ mod test {
         let mut tracking_file = TrackingFile::new(
             1,
             Url::from_file_path(file_path).unwrap(),
-            lsp::TextDocumentSyncKind::Full,
+            lsp::TextDocumentSyncKind::FULL,
         );
         let change_event = lsp::TextDocumentContentChangeEvent {
             range: None,
@@ -158,7 +160,7 @@ mod test {
             Url::from_file_path(file_path).unwrap(),
             sync_request.text_document.uri
         );
-        assert_eq!(5, sync_request.text_document.version.unwrap());
+        assert_eq!(5, sync_request.text_document.version);
         assert_eq!(1, sync_request.content_changes.len());
         assert_eq!("", sync_request.content_changes[0].text);
 
@@ -182,7 +184,7 @@ mod test {
 
         let sync_request = tracking_file.fetch_pending_changes().unwrap();
 
-        assert_eq!(6, sync_request.text_document.version.unwrap());
+        assert_eq!(6, sync_request.text_document.version);
         assert_eq!(1, sync_request.content_changes.len());
         assert_eq!("line1\nline2\nline3", sync_request.content_changes[0].text);
 
@@ -206,7 +208,7 @@ mod test {
 
         let sync_request = tracking_file.fetch_pending_changes().unwrap();
 
-        assert_eq!(7, sync_request.text_document.version.unwrap());
+        assert_eq!(7, sync_request.text_document.version);
         assert_eq!(1, sync_request.content_changes.len());
         assert_eq!("line1\n", sync_request.content_changes[0].text);
     }

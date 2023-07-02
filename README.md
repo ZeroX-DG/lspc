@@ -1,8 +1,6 @@
 # Lsp Client
 
 Language server protocol client implement in Rust.
-First target editor is neovim.
-First target language server is [rust-analyzer](https://github.com/rust-analyzer/rust-analyzer)
 
 # Development setup
 

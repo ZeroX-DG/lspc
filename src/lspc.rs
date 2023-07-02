@@ -2,7 +2,6 @@ pub mod handler;
 // Custom LSP types
 pub mod msg;
 mod tracking_file;
-pub mod types;
 
 use std::{
     collections::HashMap,
@@ -15,10 +14,10 @@ use crossbeam::channel::{tick, Receiver, Select};
 use lsp_types::{
     self as lsp, notification as noti,
     request::{
-        Formatting, GotoDefinition, GotoDefinitionResponse, HoverRequest, Initialize, References,
+        Formatting, GotoDefinition, HoverRequest, Initialize, References, InlayHintRequest
     },
     DocumentFormattingParams, FormattingOptions, Hover, Location, Position, ShowMessageParams,
-    TextDocumentIdentifier, TextEdit,
+    TextDocumentIdentifier, TextEdit, GotoDefinitionResponse, InlayHintParams, InlayHint, Range
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -27,7 +26,6 @@ use self::{
     handler::{LangServerHandler, LangSettings},
     msg::{LspMessage, RawNotification, RawRequest, RawResponse},
     tracking_file::TrackingFile,
-    types::{InlayHint, InlayHints, InlayHintsParams},
 };
 
 pub const SYNC_DELAY_MS: u64 = 500;
@@ -38,7 +36,7 @@ pub struct LsConfig {
     pub command: Vec<String>,
     pub root_markers: Vec<String>,
     #[serde(default)]
-    pub indentation: u64,
+    pub indentation: u32,
     #[serde(default)]
     pub indentation_with_space: bool,
 }
@@ -61,6 +59,7 @@ pub enum Event {
     },
     InlayHints {
         text_document: TextDocumentIdentifier,
+        range: Range
     },
     Format {
         text_document_lines: Vec<String>,
@@ -71,7 +70,7 @@ pub enum Event {
     },
     DidChange {
         text_document: TextDocumentIdentifier,
-        version: i64,
+        version: i32,
         content_change: lsp::TextDocumentContentChangeEvent,
     },
     DidClose {
@@ -316,13 +315,10 @@ impl<E: Editor> Lspc<E> {
                 .map_err(|e| LspcError::LangServer(e))?;
 
                 let init_params = lsp_types::InitializeParams {
-                    process_id: Some(std::process::id() as u64),
-                    root_path: Some(root.into()),
+                    process_id: Some(std::process::id()),
                     root_uri: Some(root_url),
-                    initialization_options: None,
                     capabilities,
-                    trace: None,
-                    workspace_folders: None,
+                    ..Default::default()
                 };
                 lsp_handler.lsp_request::<Initialize>(
                     &init_params,
@@ -347,9 +343,14 @@ impl<E: Editor> Lspc<E> {
                         MainLoopError::IgnoredMessage
                     })?;
                 let text_document_clone = text_document.clone();
-                let params = lsp_types::TextDocumentPositionParams {
-                    text_document,
-                    position,
+                let params = lsp_types::HoverParams {
+                    text_document_position_params: lsp_types::TextDocumentPositionParams {
+                        text_document,
+                        position,
+                    },
+                    work_done_progress_params: lsp_types::WorkDoneProgressParams {
+                        work_done_token: None
+                    }
                 };
                 handler.lsp_request::<HoverRequest>(
                     &params,
@@ -370,9 +371,17 @@ impl<E: Editor> Lspc<E> {
                         log::info!("Nontracking file: {:?}", text_document);
                         MainLoopError::IgnoredMessage
                     })?;
-                let params = lsp_types::TextDocumentPositionParams {
-                    text_document,
-                    position,
+                let params = lsp_types::GotoDefinitionParams {
+                    text_document_position_params: lsp_types::TextDocumentPositionParams {
+                        text_document,
+                        position,
+                    },
+                    work_done_progress_params: lsp_types::WorkDoneProgressParams {
+                        work_done_token: None
+                    },
+                    partial_result_params: lsp_types::PartialResultParams {
+                        partial_result_token: None
+                    }
                 };
                 handler.lsp_request::<GotoDefinition>(
                     &params,
@@ -397,18 +406,24 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::InlayHints { text_document } => {
+            Event::InlayHints { text_document , range } => {
                 let (handler, _, _) =
                     self.handler_for_file(&text_document.uri).ok_or_else(|| {
                         log::info!("Nontracking file: {:?}", text_document);
                         MainLoopError::IgnoredMessage
                     })?;
                 let text_document_clone = text_document.clone();
-                let params = InlayHintsParams { text_document };
-                handler.lsp_request::<InlayHints>(
+                let params = InlayHintParams {
+                    work_done_progress_params: lsp_types::WorkDoneProgressParams {
+                        work_done_token: None
+                    },
+                    text_document,
+                    range
+                };
+                handler.lsp_request::<InlayHintRequest>(
                     &params,
                     Box::new(move |editor: &mut E, _handler, response| {
-                        editor.inline_hints(&text_document_clone, &response)?;
+                        editor.inline_hints(&text_document_clone, &response.unwrap_or(Vec::new()))?;
 
                         Ok(())
                     }),
@@ -427,10 +442,14 @@ impl<E: Editor> Lspc<E> {
                     tab_size: handler.lang_settings.indentation,
                     insert_spaces: handler.lang_settings.indentation_with_space,
                     properties: HashMap::new(),
+                    ..Default::default()
                 };
                 let params = DocumentFormattingParams {
                     text_document,
                     options,
+                    work_done_progress_params: lsp_types::WorkDoneProgressParams {
+                        work_done_token: None
+                    },
                 };
                 handler.lsp_request::<Formatting>(
                     &params,
@@ -461,6 +480,12 @@ impl<E: Editor> Lspc<E> {
                     context: lsp::ReferenceContext {
                         include_declaration,
                     },
+                    work_done_progress_params: lsp_types::WorkDoneProgressParams {
+                        work_done_token: None
+                    },
+                    partial_result_params: lsp_types::PartialResultParams {
+                        partial_result_token: None
+                    }
                 };
 
                 handler.lsp_request::<References>(
