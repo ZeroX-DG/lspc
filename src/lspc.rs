@@ -62,7 +62,6 @@ pub enum Event {
         range: Range
     },
     Format {
-        text_document_lines: Vec<String>,
         text_document: TextDocumentIdentifier,
     },
     DidOpen {
@@ -178,7 +177,7 @@ pub trait Editor: 'static {
     fn show_message(&mut self, show_message_params: &ShowMessageParams) -> Result<(), EditorError>;
     fn show_references(&mut self, locations: &Vec<Location>) -> Result<(), EditorError>;
     fn goto(&mut self, location: &Location) -> Result<(), EditorError>;
-    fn apply_edits(&self, lines: &Vec<String>, edits: &Vec<TextEdit>) -> Result<(), EditorError>;
+    fn apply_edits(&self, edits: &Vec<TextEdit>) -> Result<(), EditorError>;
     fn track_all_buffers(&self) -> Result<(), EditorError>;
     fn watch_file_events(
         &mut self,
@@ -430,7 +429,6 @@ impl<E: Editor> Lspc<E> {
                 )?;
             }
             Event::Format {
-                text_document_lines,
                 text_document,
             } => {
                 let (handler, _, _) =
@@ -455,7 +453,7 @@ impl<E: Editor> Lspc<E> {
                     &params,
                     Box::new(move |editor: &mut E, _handler, response| {
                         if let Some(edits) = response {
-                            editor.apply_edits(&text_document_lines, &edits)?;
+                            editor.apply_edits(&edits)?;
                         }
 
                         Ok(())

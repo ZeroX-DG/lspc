@@ -4,3 +4,4 @@ pub mod lspc;
 pub mod rpc;
 
 pub use crate::lspc::Lspc;
+pub use lsp_types;
