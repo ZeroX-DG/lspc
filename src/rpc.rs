@@ -125,7 +125,7 @@ impl<M: Message> Client<M> {
         }
     }
 
-    fn close(self) -> Result<(), String> {
+    pub fn close(self) -> Result<(), String> {
         self.threads.join()
     }
 }

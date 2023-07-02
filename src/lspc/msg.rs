@@ -1,7 +1,4 @@
-use std::{
-    error::Error,
-    io::{BufRead, Write},
-};
+use std::io::{BufRead, Write};
 
 use log;
 use serde::{Deserialize, Serialize};
@@ -94,7 +91,7 @@ impl Message for LspMessage {
             None => return Ok(None),
             Some(text) => text,
         };
-        let msg = from_str(&text).map_err(|e| RpcError::Deserialize(e.description().into()))?;
+        let msg = from_str(&text).map_err(|e| RpcError::Deserialize(e.to_string()))?;
         Ok(Some(msg))
     }
 
@@ -109,7 +106,7 @@ impl Message for LspMessage {
             jsonrpc: "2.0",
             msg: self,
         })
-        .map_err(|e| RpcError::Serialize(e.description().into()))?;
+        .map_err(|e| RpcError::Serialize(e.to_string()))?;
         write_msg_text(w, &text)?;
         Ok(())
     }
@@ -223,7 +220,7 @@ fn read_msg_text(inp: &mut impl BufRead) -> Result<Option<String>, String> {
         buf.clear();
         let read_count = inp
             .read_line(&mut buf)
-            .map_err(|e| e.description().to_owned())?;
+            .map_err(|e| e.to_string())?;
         if read_count == 0 {
             return Ok(None);
         }
@@ -251,8 +248,8 @@ fn read_msg_text(inp: &mut impl BufRead) -> Result<Option<String>, String> {
     let mut buf = buf.into_bytes();
     buf.resize(size, 0);
     inp.read_exact(&mut buf)
-        .map_err(|e| e.description().to_owned())?;
-    let buf = String::from_utf8(buf).map_err(|e| e.description().to_owned())?;
+        .map_err(|e| e.to_string())?;
+    let buf = String::from_utf8(buf).map_err(|e| e.to_string())?;
     log::debug!("< {}", buf);
     Ok(Some(buf))
 }
@@ -260,10 +257,10 @@ fn read_msg_text(inp: &mut impl BufRead) -> Result<Option<String>, String> {
 fn write_msg_text(out: &mut impl Write, msg: &str) -> Result<(), RpcError> {
     log::debug!("> {}", msg);
     write!(out, "Content-Length: {}\r\n\r\n", msg.len())
-        .map_err(|e| RpcError::Write(e.description().into()))?;
+        .map_err(|e| RpcError::Write(e.to_string()))?;
     out.write_all(msg.as_bytes())
-        .map_err(|e| RpcError::Write(e.description().into()))?;
+        .map_err(|e| RpcError::Write(e.to_string()))?;
     out.flush()
-        .map_err(|e| RpcError::Write(e.description().into()))?;
+        .map_err(|e| RpcError::Write(e.to_string()))?;
     Ok(())
 }

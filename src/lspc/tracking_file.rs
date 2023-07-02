@@ -58,7 +58,7 @@ impl TrackingFile {
                 let last_content_change = changes.content_changes.iter_mut().last();
                 if let Some(last_content_change) = last_content_change {
                     if last_content_change.range == content_change.range {
-                        std::mem::replace(last_content_change, content_change.clone());
+                        let _ = std::mem::replace(last_content_change, content_change.clone());
                     } else {
                         changes.content_changes.push(content_change.clone());
                     }
@@ -71,7 +71,7 @@ impl TrackingFile {
                 println!("Sync content change: {:?}", content_change);
                 if content_change.range.is_none() {
                     let new_rope = Rope::from_str(&content_change.text);
-                    std::mem::replace(content, new_rope);
+                    let _ = std::mem::replace(content, new_rope);
                 } else {
                     let start_line = content_change.range.unwrap().start.line as usize;
                     let end_line = content_change.range.unwrap().end.line as isize;

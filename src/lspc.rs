@@ -62,7 +62,7 @@ pub enum Event {
     InlayHints {
         text_document: TextDocumentIdentifier,
     },
-    FormatDoc {
+    Format {
         text_document_lines: Vec<String>,
         text_document: TextDocumentIdentifier,
     },
@@ -77,7 +77,7 @@ pub enum Event {
     DidClose {
         text_document: TextDocumentIdentifier,
     },
-    References {
+    ShowReferences {
         text_document: TextDocumentIdentifier,
         position: Position,
         include_declaration: bool,
@@ -414,7 +414,7 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::FormatDoc {
+            Event::Format {
                 text_document_lines,
                 text_document,
             } => {
@@ -443,7 +443,7 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::References {
+            Event::ShowReferences {
                 text_document,
                 position,
                 include_declaration,
