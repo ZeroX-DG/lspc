@@ -155,11 +155,7 @@ pub enum LspcError {
     NotStarted,
 }
 
-pub trait BufferId: Eq + std::fmt::Debug + std::hash::Hash + Copy + 'static {}
-
 pub trait Editor: 'static {
-    type BufferId: BufferId;
-
     fn events(&self) -> Receiver<Event>;
     fn capabilities(&self) -> lsp_types::ClientCapabilities;
     fn say_hello(&self) -> Result<(), EditorError>;
