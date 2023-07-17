@@ -13,11 +13,10 @@ use std::{
 use crossbeam::channel::{tick, Receiver, Select};
 use lsp_types::{
     self as lsp, notification as noti,
-    request::{
-        Formatting, GotoDefinition, HoverRequest, Initialize, References, InlayHintRequest
-    },
-    DocumentFormattingParams, FormattingOptions, Hover, Location, Position, ShowMessageParams,
-    TextDocumentIdentifier, TextEdit, GotoDefinitionResponse, InlayHintParams, InlayHint, Range
+    request::{Formatting, GotoDefinition, HoverRequest, Initialize, InlayHintRequest, References},
+    DocumentFormattingParams, FormattingOptions, GotoDefinitionResponse, Hover, InlayHint,
+    InlayHintParams, Location, Position, Range, ShowMessageParams, TextDocumentIdentifier,
+    TextEdit,
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -59,7 +58,7 @@ pub enum Event {
     },
     InlayHints {
         text_document: TextDocumentIdentifier,
-        range: Range
+        range: Range,
     },
     Format {
         text_document: TextDocumentIdentifier,
@@ -256,9 +255,7 @@ fn get_handler<'a, E>(
 where
     E: Editor,
 {
-    handlers
-        .iter_mut()
-        .find(|handler| handler.id == handler_id)
+    handlers.iter_mut().find(|handler| handler.id == handler_id)
 }
 
 impl<E: Editor> Lspc<E> {
@@ -348,8 +345,8 @@ impl<E: Editor> Lspc<E> {
                         position,
                     },
                     work_done_progress_params: lsp_types::WorkDoneProgressParams {
-                        work_done_token: None
-                    }
+                        work_done_token: None,
+                    },
                 };
                 handler.lsp_request::<HoverRequest>(
                     &params,
@@ -376,11 +373,11 @@ impl<E: Editor> Lspc<E> {
                         position,
                     },
                     work_done_progress_params: lsp_types::WorkDoneProgressParams {
-                        work_done_token: None
+                        work_done_token: None,
                     },
                     partial_result_params: lsp_types::PartialResultParams {
-                        partial_result_token: None
-                    }
+                        partial_result_token: None,
+                    },
                 };
                 handler.lsp_request::<GotoDefinition>(
                     &params,
@@ -405,7 +402,10 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::InlayHints { text_document , range } => {
+            Event::InlayHints {
+                text_document,
+                range,
+            } => {
                 let (handler, _, _) =
                     self.handler_for_file(&text_document.uri).ok_or_else(|| {
                         log::info!("Nontracking file: {:?}", text_document);
@@ -414,23 +414,22 @@ impl<E: Editor> Lspc<E> {
                 let text_document_clone = text_document.clone();
                 let params = InlayHintParams {
                     work_done_progress_params: lsp_types::WorkDoneProgressParams {
-                        work_done_token: None
+                        work_done_token: None,
                     },
                     text_document,
-                    range
+                    range,
                 };
                 handler.lsp_request::<InlayHintRequest>(
                     &params,
                     Box::new(move |editor: &mut E, _handler, response| {
-                        editor.inline_hints(&text_document_clone, &response.unwrap_or(Vec::new()))?;
+                        editor
+                            .inline_hints(&text_document_clone, &response.unwrap_or(Vec::new()))?;
 
                         Ok(())
                     }),
                 )?;
             }
-            Event::Format {
-                text_document,
-            } => {
+            Event::Format { text_document } => {
                 let (handler, _, _) =
                     self.handler_for_file(&text_document.uri).ok_or_else(|| {
                         log::info!("Nontracking file: {:?}", text_document);
@@ -446,7 +445,7 @@ impl<E: Editor> Lspc<E> {
                     text_document,
                     options,
                     work_done_progress_params: lsp_types::WorkDoneProgressParams {
-                        work_done_token: None
+                        work_done_token: None,
                     },
                 };
                 handler.lsp_request::<Formatting>(
@@ -479,11 +478,11 @@ impl<E: Editor> Lspc<E> {
                         include_declaration,
                     },
                     work_done_progress_params: lsp_types::WorkDoneProgressParams {
-                        work_done_token: None
+                        work_done_token: None,
                     },
                     partial_result_params: lsp_types::PartialResultParams {
-                        partial_result_token: None
-                    }
+                        partial_result_token: None,
+                    },
                 };
 
                 handler.lsp_request::<References>(
@@ -497,7 +496,10 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::DidOpen { text_document, handler_id } => {
+            Event::DidOpen {
+                text_document,
+                handler_id,
+            } => {
                 let handler = get_handler(&mut self.lsp_handlers, handler_id).ok_or_else(|| {
                     log::info!("Unmanaged file: {:?}", text_document.uri);
                     MainLoopError::IgnoredMessage

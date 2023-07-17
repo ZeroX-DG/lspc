@@ -33,7 +33,7 @@ impl TrackingFile {
                 })
             }
             lsp::TextDocumentSyncKind::FULL => SyncData::Full(Rope::new()),
-            _ => unreachable!()
+            _ => unreachable!(),
         };
 
         TrackingFile {

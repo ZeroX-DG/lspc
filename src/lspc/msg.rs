@@ -218,9 +218,7 @@ fn read_msg_text(inp: &mut impl BufRead) -> Result<Option<String>, String> {
     let mut buf = String::new();
     loop {
         buf.clear();
-        let read_count = inp
-            .read_line(&mut buf)
-            .map_err(|e| e.to_string())?;
+        let read_count = inp.read_line(&mut buf).map_err(|e| e.to_string())?;
         if read_count == 0 {
             return Ok(None);
         }
@@ -247,8 +245,7 @@ fn read_msg_text(inp: &mut impl BufRead) -> Result<Option<String>, String> {
     let size = size.ok_or("no Content-Length")?;
     let mut buf = buf.into_bytes();
     buf.resize(size, 0);
-    inp.read_exact(&mut buf)
-        .map_err(|e| e.to_string())?;
+    inp.read_exact(&mut buf).map_err(|e| e.to_string())?;
     let buf = String::from_utf8(buf).map_err(|e| e.to_string())?;
     log::debug!("< {}", buf);
     Ok(Some(buf))
@@ -260,7 +257,6 @@ fn write_msg_text(out: &mut impl Write, msg: &str) -> Result<(), RpcError> {
         .map_err(|e| RpcError::Write(e.to_string()))?;
     out.write_all(msg.as_bytes())
         .map_err(|e| RpcError::Write(e.to_string()))?;
-    out.flush()
-        .map_err(|e| RpcError::Write(e.to_string()))?;
+    out.flush().map_err(|e| RpcError::Write(e.to_string()))?;
     Ok(())
 }
