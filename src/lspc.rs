@@ -66,6 +66,7 @@ pub enum Event {
     },
     DidOpen {
         text_document: TextDocumentIdentifier,
+        handler_id: u64,
     },
     DidChange {
         text_document: TextDocumentIdentifier,
@@ -174,7 +175,7 @@ pub trait Editor: 'static {
     fn show_references(&mut self, locations: &Vec<Location>) -> Result<(), EditorError>;
     fn goto(&mut self, location: &Location) -> Result<(), EditorError>;
     fn apply_edits(&self, edits: &Vec<TextEdit>) -> Result<(), EditorError>;
-    fn track_all_buffers(&self) -> Result<(), EditorError>;
+    fn track_all_buffers(&self, handler_id: u64, lang_id: String) -> Result<(), EditorError>;
     fn watch_file_events(
         &mut self,
         text_document: &TextDocumentIdentifier,
@@ -248,16 +249,16 @@ fn to_file_url(s: &str) -> Option<Url> {
 
 // Get the handler of a file by checking
 // if that handler's root is ancestor of `file_path`
-fn handler_of<'a, E>(
+fn get_handler<'a, E>(
     handlers: &'a mut Vec<LangServerHandler<E>>,
-    file_path: &str,
+    handler_id: u64,
 ) -> Option<&'a mut LangServerHandler<E>>
 where
     E: Editor,
 {
     handlers
         .iter_mut()
-        .find(|handler| handler.include_file(file_path))
+        .find(|handler| handler.id == handler_id)
 }
 
 impl<E: Editor> Lspc<E> {
@@ -301,7 +302,7 @@ impl<E: Editor> Lspc<E> {
                 self.next_handler_id += 1;
                 let mut lsp_handler = LangServerHandler::new(
                     self.next_handler_id,
-                    lang_id,
+                    lang_id.clone(),
                     &config.command[0],
                     lang_settings,
                     &config.command[1..],
@@ -315,13 +316,16 @@ impl<E: Editor> Lspc<E> {
                     capabilities,
                     ..Default::default()
                 };
+
+                let handler_id = lsp_handler.id;
+
                 lsp_handler.lsp_request::<Initialize>(
                     &init_params,
-                    Box::new(|editor: &mut E, handler, response| {
+                    Box::new(move |editor: &mut E, handler, response| {
                         handler.initialize_response(response)?;
 
                         editor.message("LangServer initialized")?;
-                        editor.track_all_buffers()?;
+                        editor.track_all_buffers(handler_id, lang_id)?;
                         Ok(())
                     }),
                 )?;
@@ -493,9 +497,8 @@ impl<E: Editor> Lspc<E> {
                     }),
                 )?;
             }
-            Event::DidOpen { text_document } => {
-                let file_path = text_document.uri.path();
-                let handler = handler_of(&mut self.lsp_handlers, &file_path).ok_or_else(|| {
+            Event::DidOpen { text_document, handler_id } => {
+                let handler = get_handler(&mut self.lsp_handlers, handler_id).ok_or_else(|| {
                     log::info!("Unmanaged file: {:?}", text_document.uri);
                     MainLoopError::IgnoredMessage
                 })?;

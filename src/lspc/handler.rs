@@ -79,12 +79,6 @@ impl<E: Editor> LangServerHandler<E> {
         })
     }
 
-    pub fn include_file(&self, file_path: &str) -> bool {
-        let file_path = Path::new(file_path);
-
-        file_path.starts_with(&self.root_path)
-    }
-
     pub fn sync_kind(&self) -> lsp::TextDocumentSyncKind {
         if let Some(ref cap) = self.server_capabilities {
             match cap.text_document_sync {
